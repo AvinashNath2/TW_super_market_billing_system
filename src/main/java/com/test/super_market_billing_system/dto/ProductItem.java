@@ -9,8 +9,8 @@ public class ProductItem {
    private int subCategoryDiscount; //Sub category level discount
    private int productDiscount; //real discount on item, 0 when giving free items on purchase
    private boolean isPercentDiscount; //to check if discount is of percentage type or free item on purchase
-   private int buyItem; //Number of items to be buied to get free item
-   private int freeItem; //Number of free items the customer can get
+   private int buyItem; //Number of item customer buy
+   private int freeItem; //Number of item get for free
    private int itemDiscount; //The product item discount which the customer will get, which is maximum of the three
 
    public ProductItem(int productPrice, int categoryDiscount, int subCategoryDiscount, int productDiscount, boolean isPercentDiscount, int buyItem, int freeItem) {

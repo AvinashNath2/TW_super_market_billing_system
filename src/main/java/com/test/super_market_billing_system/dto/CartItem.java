@@ -4,11 +4,11 @@ package com.test.super_market_billing_system.dto;
  * Object to represent customer cart item in details
  */
 public class CartItem {
-	private String itemName; //name of item added in cart
-	private int quantity; //quantity of item added in cart
-	private String unit; //unit of buied item (kg, lt, dozen etc.)
-	private double unDiscountedAmount; //real cost of item without discount
-	private double discountedAmount; //cost of item after discount
+	private String itemName; // cart item name
+	private int quantity; // quantity of single item added in cart
+	private String unit; //unit of cart item (ProductItemUnit)
+	private double unDiscountedAmount; //real cost of item
+	private double discountedAmount; //cost of item after applied discount
 
 	public String getItemName() {
 		return itemName;

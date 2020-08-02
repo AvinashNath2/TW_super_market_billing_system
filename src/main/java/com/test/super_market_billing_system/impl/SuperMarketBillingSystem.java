@@ -5,7 +5,7 @@ import com.test.super_market_billing_system.dto.InputStringDto;
 import com.test.super_market_billing_system.dto.InvoiceAmountDto;
 import com.test.super_market_billing_system.dto.ProductItem;
 import com.test.super_market_billing_system.enums.ProductItemUnit;
-import com.test.super_market_billing_system.exception.InvalidDataException;
+import com.test.super_market_billing_system.exception.InvalidInputDataException;
 import org.springframework.http.HttpStatus;
 import com.test.super_market_billing_system.utils.ApplicationConstant;
 import com.test.super_market_billing_system.utils.ErrorMessageConstant;
@@ -19,6 +19,10 @@ import java.util.logging.Logger;
 /**
  * This is an basic implementation of creating Super-Market BillingSystem please provide input in
  * input.txt file present in project
+ *           Assumption
+ *           1. There could not be any more unit than (KG, LT, DOZEN)
+ *           2. The Input data will always be in the same template (resource/input.txt)
+ *           3. In sample data set (provide by you) there was no case for category and sub-category discount so i added that in inventory item
  */
 public class SuperMarketBillingSystem {
 
@@ -28,7 +32,7 @@ public class SuperMarketBillingSystem {
     // Map for Super-Market Inventory
     private static Map<String, ProductItem> productItemMap = new HashMap<String, ProductItem>();
 
-    public InvoiceAmountDto generateInvoice(InputStringDto inputStringDtoDto) throws InvalidDataException {
+    public InvoiceAmountDto generateInvoice(InputStringDto inputStringDtoDto) throws InvalidInputDataException {
         poppulateInventory();
         //DecimalFormat to show amount in two decimal places
         DecimalFormat decimalFormat = new DecimalFormat("#.00");
@@ -55,15 +59,16 @@ public class SuperMarketBillingSystem {
         invoiceAmountDto.setSavedAmount(decimalFormat.format(savedAmount));
 
         /**
-         * Generate invoice
+         * Generate invoice in console
          */
-        System.out.println("Customer: " + customerName);
-        System.out.println("Item \t\t     Qty \t Amount");
+        System.out.println("Customer:       " + customerName);
+        System.out.println("Item \t\t     Qty \t\t Amount");
         for (CartItem item : cartItems) {
             System.out.println(
                     item.getItemName() + "\t\t     " + item.getQuantity() + item.getUnit() + " \t "
                             + decimalFormat.format(item.getDiscountedAmount()));
         }
+        System.out.println("----------------------------------------------------------");
         System.out.println(
                 "\nTotal Amount         " + decimalFormat.format(totalDiscountedBilledAmount)
                         + " Rs");
@@ -77,7 +82,7 @@ public class SuperMarketBillingSystem {
     }
 
     /**
-     * This method saves all supermarket product details in a hashmap
+     * This method initialize list of product
      */
     private void poppulateInventory() {
         productItemMap.put("Apple", new ProductItem(50, 10, 18, 0, false, 3, 1));
@@ -88,10 +93,15 @@ public class SuperMarketBillingSystem {
         productItemMap.put("Soy Milk", new ProductItem(40, 15, 20, 10, true, 0, 0));
         productItemMap.put("Cheddar", new ProductItem(50, 15, 20, 0, false, 2, 1));
         productItemMap.put("Gouda", new ProductItem(80, 15, 20, 10, true, 0, 0));
+        //Additional case where object unit is in dozen
+        productItemMap.put("Banana", new ProductItem(5, 15, 20, 0, false, 0, 0));
+        //Additional cases with no category discount or sub category discount
+        productItemMap.put("Mango", new ProductItem(50, 10, 18, 0, false, 0, 0));
+        productItemMap.put("ButterMilk", new ProductItem(50, 15, 0, 0, false, 0, 0));
     }
 
     private void generateCustomerInvoice(String customerCartItemsStr, List<CartItem> cartItems)
-            throws InvalidDataException {
+            throws InvalidInputDataException {
 
         String[] cartItemsArray = customerCartItemsStr.split(",");
         // to get an item detail from item hashmap
@@ -111,12 +121,13 @@ public class SuperMarketBillingSystem {
             if (customerCartItem.getUnit() != null) {
                 ProductItemUnit productItemUnit = ProductItemUnit
                         .valueOf(customerCartItem.getUnit().toUpperCase());
+                //unit conversion to quantity
                 switch (productItemUnit) {
                     case KG:
                     case LT:
                         break;
                     case DOZEN:
-                        customerCartItem.setQuantity(customerCartItem.getQuantity() * 12);
+                        customerCartItem.setQuantity(customerCartItem.getQuantity() * productItemUnit.getUnitQuantity());
                         unitTypeDozen = true;
                         break;
                     default:
@@ -124,20 +135,26 @@ public class SuperMarketBillingSystem {
                         break;
                 }
             } else {
-                throw new InvalidDataException(HttpStatus.BAD_REQUEST.value(), ErrorMessageConstant.ENTER_VALID_INPUT);
+                throw new InvalidInputDataException(HttpStatus.BAD_REQUEST.value(), ErrorMessageConstant.ENTER_VALID_INPUT);
             }
             currentProductItem = productItemMap.get(customerCartItem.getItemName());
             customerCartItem.setUnDiscountedAmount(
                     customerCartItem.getQuantity() * currentProductItem.getProductPrice());
 
             if (currentProductItem.isPercentDiscount()) {
-                customerCartItem.setDiscountedAmount(
-                        customerCartItem.getUnDiscountedAmount() * (100 - currentProductItem
-                                .getItemDiscount()) / 100);
-            } else {
+                //calculate billing amount by percentage discount
+                customerCartItem.setDiscountedAmount(customerCartItem.getUnDiscountedAmount() * (100 - currentProductItem.getItemDiscount()) / 100);
+            } else if(currentProductItem.getFreeItem() > 0){
+                //calculate billing amount by item on item discount
                 int noOfDiscountItems = customerCartItem.getQuantity() / (currentProductItem.getBuyItem() + currentProductItem.getFreeItem());
                 int discountedQuantity = customerCartItem.getQuantity() - (noOfDiscountItems * currentProductItem.getFreeItem());
                 customerCartItem.setDiscountedAmount(discountedQuantity * currentProductItem.getProductPrice());
+            }else  if(currentProductItem.getSubCategoryDiscount() > 0){
+                //apply category discount if no percentage discount or item discount -> use sub-category discount
+                customerCartItem.setDiscountedAmount(customerCartItem.getUnDiscountedAmount() * (100 - currentProductItem.getSubCategoryDiscount()) / 100);
+            }else if(currentProductItem.getCategoryDiscount() > 0){
+                //apply category discount if no percentage discount or item discount & categoryDiscount  -> use category discount
+                customerCartItem.setDiscountedAmount(customerCartItem.getUnDiscountedAmount() * (100 - currentProductItem.getCategoryDiscount()) / 100);
             }
             if (unitTypeDozen) {
                 customerCartItem.setQuantity(customerCartItem.getQuantity() / 12);
@@ -159,21 +176,22 @@ public class SuperMarketBillingSystem {
         }
     }
 
-
+    //add total un-discounted present in each item
     private double getTotalUnDiscountedBilledAmount(List<CartItem> cartItems) {
-        double total_real_amount = 0;
+        double totalUnDiscountedAmount = 0;
         for (CartItem item : cartItems) {
-            total_real_amount += item.getUnDiscountedAmount();
+            totalUnDiscountedAmount += item.getUnDiscountedAmount();
         }
-        return total_real_amount;
+        return totalUnDiscountedAmount;
     }
 
+    //add total discounted present in each item
     private double getTotalDiscountedBilledAmount(List<CartItem> cartItems) {
-        double total_billed_amount = 0;
+        double totalDiscountedAmount = 0;
         for (CartItem item : cartItems) {
-            total_billed_amount += item.getDiscountedAmount();
+            totalDiscountedAmount += item.getDiscountedAmount();
         }
-        return total_billed_amount;
+        return totalDiscountedAmount;
     }
 
     private double getSavedAmount(double totalUnDiscountedBilledAmount,
