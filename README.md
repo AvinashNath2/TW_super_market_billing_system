@@ -1,7 +1,8 @@
-## TW_super_market_billing_system - test report
+## TW_super_market_billing_system - test report for all cases 
 
 
-Customer:       Anish Kumar
+```
+Customer:       Anish Kumar 
 Item                 Qty                 Amount
 Banana               6dozen      288.00
 ----------------------------------------------------------
@@ -42,3 +43,7 @@ You saved            2650.00 - 2130.00 = 520.00 Rs
 [INFO] Results:
 [INFO] 
 [INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+``` 
+Thanks
+
+
